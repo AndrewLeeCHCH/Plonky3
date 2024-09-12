@@ -21,13 +21,13 @@ use p3_poseidon2_air::air::Poseidon2Air;
 use p3_poseidon2_air::generation::generate_trace_rows;
 use p3_poseidon2_air::{LinearLayer, PermutationLinearLayer};
 
-const WIDTH: usize = 16;
+const WIDTH: usize = 1;
 const SBOX_DEGREE: usize = 3;
 const SBOX_REGISTERS: usize = 1;
 const HALF_FULL_ROUNDS: usize = 4;
 const PARTIAL_ROUNDS: usize = 20;
 
-const NUM_HASHES: usize = 1 << 16;
+const NUM_HASHES: usize = 1<<16;
 
 fn main() -> Result<(), impl Debug> {
     let env_filter = EnvFilter::builder()
@@ -83,7 +83,11 @@ fn main() -> Result<(), impl Debug> {
         HALF_FULL_ROUNDS,
         PARTIAL_ROUNDS,
     > = Poseidon2Air::new_from_rng(&mut thread_rng());
-    let inputs = (0..NUM_HASHES).map(|_| random()).collect::<Vec<_>>();
+
+    let a =  air.beginning_full_round_constants;
+
+    // Vec<[F; WIDTH]>
+    let inputs = (0..NUM_HASHES).map(|_| [Val::new(0); WIDTH] ).collect::<Vec<_>>();
     let trace = generate_trace_rows::<
         Val,
         L,
@@ -92,7 +96,12 @@ fn main() -> Result<(), impl Debug> {
         SBOX_REGISTERS,
         HALF_FULL_ROUNDS,
         PARTIAL_ROUNDS,
-    >(inputs);
+    >(inputs,
+      air.beginning_full_round_constants,
+      air.partial_round_constants,
+      air.ending_full_round_constants,
+      air.internal_matrix_diagonal,
+    );
 
     let fri_config = FriConfig {
         log_blowup: 1,

@@ -16,6 +16,7 @@ use tracing_forest::ForestLayer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Registry};
+use p3_poseidon2_air::air::Poseidon2Air;
 
 const WIDTH: usize = 16;
 const SBOX_DEGREE: usize = 3;
@@ -25,7 +26,7 @@ const PARTIAL_ROUNDS: usize = 20;
 
 const NUM_HASHES: usize = 1 << 16;
 
-fn main() -> Result<(), impl Debug> {
+fn main() {
     let env_filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
         .from_env_lossy();
@@ -54,42 +55,42 @@ fn main() -> Result<(), impl Debug> {
 
     type Challenger = SerializingChallenger32<Val, HashChallenger<u8, ByteHash, 32>>;
 
-    let air: Poseidon2Air<
-        Val,
-        WIDTH,
-        SBOX_DEGREE,
-        SBOX_REGISTERS,
-        HALF_FULL_ROUNDS,
-        PARTIAL_ROUNDS,
-    > = Poseidon2Air::new_from_rng(&mut thread_rng());
-    let inputs = (0..NUM_HASHES).map(|_| random()).collect::<Vec<_>>();
-    let trace = generate_trace_rows::<
-        Val,
-        WIDTH,
-        SBOX_DEGREE,
-        SBOX_REGISTERS,
-        HALF_FULL_ROUNDS,
-        PARTIAL_ROUNDS,
-    >(inputs);
-
-    type Dft = Radix2DitParallel;
-    let dft = Dft {};
-
-    let fri_config = FriConfig {
-        log_blowup: 1,
-        num_queries: 100,
-        proof_of_work_bits: 16,
-        mmcs: challenge_mmcs,
-    };
-    type Pcs = TwoAdicFriPcs<Val, Dft, ValMmcs, ChallengeMmcs>;
-    let pcs = Pcs::new(dft, val_mmcs, fri_config);
-
-    type MyConfig = StarkConfig<Pcs, Challenge, Challenger>;
-    let config = MyConfig::new(pcs);
-
-    let mut challenger = Challenger::from_hasher(vec![], byte_hash);
-    let proof = prove(&config, &air, &mut challenger, trace, &vec![]);
-
-    let mut challenger = Challenger::from_hasher(vec![], byte_hash);
-    verify(&config, &air, &mut challenger, &proof, &vec![])
+    // let air: Poseidon2Air<
+    //     Val,
+    //     WIDTH,
+    //     SBOX_DEGREE,
+    //     SBOX_REGISTERS,
+    //     HALF_FULL_ROUNDS,
+    //     PARTIAL_ROUNDS,
+    // > = Poseidon2Air::new_from_rng(&mut thread_rng());
+    // let inputs = (0..NUM_HASHES).map(|_| random()).collect::<Vec<_>>();
+    // let trace = generate_trace_rows::<
+    //     Val,
+    //     WIDTH,
+    //     SBOX_DEGREE,
+    //     SBOX_REGISTERS,
+    //     HALF_FULL_ROUNDS,
+    //     PARTIAL_ROUNDS,
+    // >(inputs);
+    //
+    // type Dft = Radix2DitParallel;
+    // let dft = Dft {};
+    //
+    // let fri_config = FriConfig {
+    //     log_blowup: 1,
+    //     num_queries: 100,
+    //     proof_of_work_bits: 16,
+    //     mmcs: challenge_mmcs,
+    // };
+    // type Pcs = TwoAdicFriPcs<Val, Dft, ValMmcs, ChallengeMmcs>;
+    // let pcs = Pcs::new(dft, val_mmcs, fri_config);
+    //
+    // type MyConfig = StarkConfig<Pcs, Challenge, Challenger>;
+    // let config = MyConfig::new(pcs);
+    //
+    // let mut challenger = Challenger::from_hasher(vec![], byte_hash);
+    // let proof = prove(&config, &air, &mut challenger, trace, &vec![]);
+    //
+    // let mut challenger = Challenger::from_hasher(vec![], byte_hash);
+    // verify(&config, &air, &mut challenger, &proof, &vec![])
 }

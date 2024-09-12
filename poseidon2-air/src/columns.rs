@@ -43,7 +43,7 @@ pub struct FullRound<T, L, const WIDTH: usize, const SBOX_DEGREE: usize, const S
     /// S-BOX Columns
     pub sbox: [SBox<T, SBOX_DEGREE, SBOX_REGISTERS>; WIDTH],
 
-    _marker: PhantomData<L>
+    pub _marker: PhantomData<L>
 }
 
 /// Partial Round Columns

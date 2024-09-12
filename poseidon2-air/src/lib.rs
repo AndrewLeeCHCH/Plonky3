@@ -4,7 +4,6 @@
 //! Implementation of the Poseidon2 Permutation from <https://eprint.iacr.org/2023/323>.
 
 
-#![no_std]
 #![cfg_attr(doc_cfg, feature(doc_cfg))]
 #![forbid(missing_docs)]
 #![forbid(rustdoc::broken_intra_doc_links)]

@@ -21,10 +21,14 @@ pub struct Poseidon2Air<
     const HALF_FULL_ROUNDS: usize,
     const PARTIAL_ROUNDS: usize,
 > {
-    beginning_full_round_constants: [[F; WIDTH]; HALF_FULL_ROUNDS],
-    partial_round_constants: [F; PARTIAL_ROUNDS],
-    ending_full_round_constants: [[F; WIDTH]; HALF_FULL_ROUNDS],
-    internal_matrix_diagonal: [F; WIDTH],
+    /// Beginning full round constants
+    pub beginning_full_round_constants: [[F; WIDTH]; HALF_FULL_ROUNDS],
+    /// Partial round constants
+    pub partial_round_constants: [F; PARTIAL_ROUNDS],
+    /// Ending full round constants
+    pub ending_full_round_constants: [[F; WIDTH]; HALF_FULL_ROUNDS],
+    /// Internal matrix diagonal
+    pub internal_matrix_diagonal: [F; WIDTH],
     _marker: PhantomData<L>,
 }
 
@@ -43,30 +47,43 @@ impl<
     where
         Standard: Distribution<F> + Distribution<[F; WIDTH]>,
     {
-        let beginning_full_round_constants = rng
-            .sample_iter(Standard)
-            .take(HALF_FULL_ROUNDS)
-            .collect::<Vec<[F; WIDTH]>>()
-            .try_into()
-            .unwrap();
-        let partial_round_constants = rng
-            .sample_iter(Standard)
-            .take(PARTIAL_ROUNDS)
-            .collect::<Vec<F>>()
-            .try_into()
-            .unwrap();
-        let ending_full_round_constants = rng
-            .sample_iter(Standard)
-            .take(HALF_FULL_ROUNDS)
-            .collect::<Vec<[F; WIDTH]>>()
-            .try_into()
-            .unwrap();
-        let internal_matrix_diagonal = rng
-            .sample_iter(Standard)
-            .take(WIDTH)
-            .collect::<Vec<F>>()
-            .try_into()
-            .unwrap();
+        // let beginning_full_round_constants = rng
+        //     .sample_iter(Standard)
+        //     .take(HALF_FULL_ROUNDS)
+        //     .collect::<Vec<[F; WIDTH]>>()
+        //     .try_into()
+        //     .unwrap();
+        // beginning_full_round_constants: [[F; WIDTH]; HALF_FULL_ROUNDS],
+        let beginning_full_round_constants: [[F; WIDTH]; HALF_FULL_ROUNDS] = [
+            [F::from_wrapped_u32(1); WIDTH]; HALF_FULL_ROUNDS
+        ];
+        // let partial_round_constants = rng
+        //     .sample_iter(Standard)
+        //     .take(PARTIAL_ROUNDS)
+        //     .collect::<Vec<F>>()
+        //     .try_into()
+        //     .unwrap();
+        let partial_round_constants: [F; PARTIAL_ROUNDS] = [
+            F::zero(); PARTIAL_ROUNDS
+        ];
+        // let ending_full_round_constants = rng
+        //     .sample_iter(Standard)
+        //     .take(HALF_FULL_ROUNDS)
+        //     .collect::<Vec<[F; WIDTH]>>()
+        //     .try_into()
+        //     .unwrap();
+        let ending_full_round_constants: [[F; WIDTH]; HALF_FULL_ROUNDS] = [
+            [F::zero(); WIDTH]; HALF_FULL_ROUNDS
+        ];
+        // let internal_matrix_diagonal = rng
+        //     .sample_iter(Standard)
+        //     .take(WIDTH)
+        //     .collect::<Vec<F>>()
+        //     .try_into()
+        //     .unwrap();
+        let internal_matrix_diagonal: [F; WIDTH]  = [
+            F::one(); WIDTH
+        ];
         Self {
             beginning_full_round_constants,
             partial_round_constants,
@@ -130,6 +147,7 @@ impl<
 
         L::matmul_external(&mut state);
         for round in 0..HALF_FULL_ROUNDS {
+            println!("eval ful round: ${round}");
             eval_full_round(
                 &mut state,
                 &local.beginning_full_rounds[round],
