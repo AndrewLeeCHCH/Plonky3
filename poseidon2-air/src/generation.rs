@@ -84,44 +84,41 @@ fn generate_trace_rows_for_perm<
     internal_matrix_diagonal: [F; WIDTH],
 ) {
     row.inputs = input;
-    // let mut current_state = input.clone();
+    let mut inputs_state = input.clone();
 
-    matmul_external(WIDTH, &mut row.inputs);
+    matmul_external(WIDTH, &mut inputs_state);
 
     for r in 0..HALF_FULL_ROUNDS {
-        add_full_round_constants(&mut row.inputs, &beginning_full_rounds_constants[r]);
+        add_full_round_constants(&mut inputs_state, &beginning_full_rounds_constants[r]);
 
-        let mut sbox_generated: [SBox<F, SBOX_DEGREE, SBOX_REGISTERS>; WIDTH] = SBox::default();
+        // let mut sbox_generated: [SBox<F, SBOX_DEGREE, SBOX_REGISTERS>; WIDTH] =
         for i in 0..WIDTH {
-            let input = row.inputs[i].clone();
-            sbox_generated[i] = generateSBox(input);
+            let input = inputs_state[i].clone();
+            row.beginning_full_rounds[r].sbox[i] = generateSBox(&input);
         }
 
-        row.beginning_full_rounds[r].sbox = sbox_generated;
-        sbox(SBOX_DEGREE, &mut row.inputs);
-        matmul_external(WIDTH, &mut row.inputs);
+        sbox(SBOX_DEGREE, &mut inputs_state);
+        matmul_external(WIDTH, &mut inputs_state);
     }
 
     for r in 0..PARTIAL_ROUNDS {
-        add_partial_round_constant(&mut row.inputs, &partial_round_constants[r]);
-        let input0 = row.inputs[0].clone();
-        row.partial_rounds[r].sbox = generateSBox(input0);
-        sbox_p(SBOX_DEGREE, &mut row.inputs[0]);
-        matmul_internal(WIDTH, &mut row.inputs, &internal_matrix_diagonal);
+        add_partial_round_constant(&mut inputs_state, &partial_round_constants[r]);
+        let input0 = inputs_state[0].clone();
+        row.partial_rounds[r].sbox = generateSBox(&input0);
+        sbox_p(SBOX_DEGREE, &mut inputs_state[0]);
+        matmul_internal(WIDTH, &mut inputs_state, &internal_matrix_diagonal);
     }
 
     for r in 0..HALF_FULL_ROUNDS {
-        add_full_round_constants(&mut row.inputs, &ending_full_round_constants[r]);
+        add_full_round_constants(&mut inputs_state, &ending_full_round_constants[r]);
 
-        let mut sbox_generated: [SBox<F, SBOX_DEGREE, SBOX_REGISTERS>; WIDTH] = SBox::default();
         for i in 0..WIDTH {
-            let input = row.inputs[i].clone();
-            sbox_generated[i] = generateSBox(input);
+            let input = inputs_state[i].clone();
+            row.ending_full_rounds[r].sbox[i] = generateSBox(&input);
         }
-        row.ending_full_rounds[r].sbox = sbox_generated;
 
-        sbox(SBOX_DEGREE, &mut row.inputs);
-        matmul_external(WIDTH, &mut row.inputs);
+        sbox(SBOX_DEGREE, &mut inputs_state);
+        matmul_external(WIDTH, &mut inputs_state);
     }
 }
 
@@ -298,16 +295,18 @@ fn generateSBox<
     F: PrimeField,
     const SBOX_DEGREE: usize,
     const SBOX_REGISTERS: usize, >(input: &F) -> SBox<F, SBOX_DEGREE, SBOX_REGISTERS> {
-
-    // let mut sbox = SBox<F, SBOX_DEGREE, SBOX_REGISTERS>{};
-    let sbox = SBox::default();
+    let mut sbox = SBox::<F, SBOX_DEGREE, SBOX_REGISTERS>([F::zero(); SBOX_REGISTERS]);
     let mut x = input.clone();
     let mut x2 = input.clone();
     x2.mul_assign(input.clone());
     let mut x3 = x2.clone();
     x3.mul_assign(input.clone());
 
-    sbox[0] = x3;
+    sbox.0[0] = x3;
+
+    if SBOX_REGISTERS == 1 {
+        return sbox;
+    }
 
     // if DEGREE == 11 {
     //     (1..REGISTERS - 1).for_each(|j| crate::air::load_product(sbox, j, &[0, 0, j - 1], builder));
@@ -316,6 +315,7 @@ fn generateSBox<
     // }
     // crate::air::load_last_product(sbox, x.clone(), x2, x3, builder);
     // *x = sbox.0[REGISTERS - 1].into();
+
 
     for i in 1..SBOX_REGISTERS - 1 {
         // if (SBOX_DEGREE == 11) {
@@ -326,10 +326,12 @@ fn generateSBox<
 
     }
 
-    // let mut finalValue = [x3, x, x2][SBOX_DEGREE % 3].clone();
-    // let s: F = sbox[SBOX_REGISTERS - 2];
-    // sbox[SBOX_REGISTERS - 1] =  finalValue.mul_assign(s);
+    let mut finalValue = [x3, x, x2][SBOX_DEGREE % 3].clone();
+    let s: F = sbox.0[SBOX_REGISTERS - 2];
+    finalValue.mul_assign(s);
+    sbox.0[SBOX_REGISTERS - 1] =  finalValue;
 
+    
     sbox
 }
 

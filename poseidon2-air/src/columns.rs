@@ -42,7 +42,7 @@ pub struct FullRound<T, L, const WIDTH: usize, const SBOX_DEGREE: usize, const S
     where L: PermutationLinearLayer, {
     /// S-BOX Columns
     pub sbox: [SBox<T, SBOX_DEGREE, SBOX_REGISTERS>; WIDTH],
-
+    /// Marker
     pub _marker: PhantomData<L>
 }
 
@@ -68,6 +68,7 @@ pub struct PartialRound<
 /// for the degrees given in the Poseidon2 paper: `3`, `5`, `7`, and `11`. See [`Self::eval`] for
 /// more information.
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct SBox<T, const DEGREE: usize, const REGISTERS: usize>(pub [T; REGISTERS]);
 
 /// Columns number

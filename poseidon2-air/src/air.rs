@@ -145,9 +145,12 @@ impl<
             "The WIDTH for this STARK does not match the Linear Layer WIDTH."
         );
 
+        // state.clone().into_iter().for_each(|input| {
+        //     builder.assert_zero(input)
+        // });
         L::matmul_external(&mut state);
         for round in 0..HALF_FULL_ROUNDS {
-            println!("eval ful round: ${round}");
+            println!("eval bg full {round}");
             eval_full_round(
                 &mut state,
                 &local.beginning_full_rounds[round],
@@ -157,6 +160,7 @@ impl<
         }
 
         for round in 0..PARTIAL_ROUNDS {
+            println!("eval partial {round}");
             eval_partial_round(
                 &mut state,
                 &local.partial_rounds[round],
@@ -165,8 +169,9 @@ impl<
                 builder,
             );
         }
-
+        //
         for round in 0..HALF_FULL_ROUNDS {
+            println!("eval end full {round}");
             eval_full_round(
                 &mut state,
                 &local.ending_full_rounds[round],
@@ -194,6 +199,7 @@ fn eval_full_round<
         *s = s.clone() + *r;
         eval_sbox(&full_round.sbox[i], s, builder);
     }
+
     L::matmul_external(state);
 }
 
