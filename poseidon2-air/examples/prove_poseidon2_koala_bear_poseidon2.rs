@@ -9,7 +9,6 @@ use p3_fri::{FriConfig, TwoAdicFriPcs};
 use p3_koala_bear::{DiffusionMatrixKoalaBear, KoalaBear};
 use p3_merkle_tree::FieldMerkleTreeMmcs;
 use p3_poseidon2::{Poseidon2, Poseidon2ExternalMatrixGeneral};
-use p3_poseidon2_air::{generate_trace_rows, Poseidon2Air};
 use p3_symmetric::{PaddingFreeSponge, TruncatedPermutation};
 use p3_uni_stark::{prove, verify, StarkConfig};
 use rand::{random, thread_rng};
@@ -18,6 +17,9 @@ use tracing_forest::ForestLayer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Registry};
+use p3_poseidon2_air::air::Poseidon2Air;
+use p3_poseidon2_air::generation::generate_trace_rows;
+use p3_poseidon2_air::{LinearLayer, PermutationLinearLayer};
 
 const WIDTH: usize = 16;
 const SBOX_DEGREE: usize = 3;
@@ -39,6 +41,9 @@ fn main() -> Result<(), impl Debug> {
 
     type Val = KoalaBear;
     type Challenge = BinomialExtensionField<Val, 4>;
+
+    type L = LinearLayer<16>;
+
 
     type Perm = Poseidon2<Val, Poseidon2ExternalMatrixGeneral, DiffusionMatrixKoalaBear, 16, 3>;
     let perm = Perm::new_from_rng_128(
@@ -69,9 +74,9 @@ fn main() -> Result<(), impl Debug> {
     let dft = Dft {};
 
     type Challenger = DuplexChallenger<Val, Perm, 16, 8>;
-
     let air: Poseidon2Air<
         Val,
+        L,
         WIDTH,
         SBOX_DEGREE,
         SBOX_REGISTERS,
@@ -81,6 +86,7 @@ fn main() -> Result<(), impl Debug> {
     let inputs = (0..NUM_HASHES).map(|_| random()).collect::<Vec<_>>();
     let trace = generate_trace_rows::<
         Val,
+        L,
         WIDTH,
         SBOX_DEGREE,
         SBOX_REGISTERS,

@@ -7,11 +7,13 @@ use p3_maybe_rayon::prelude::*;
 use tracing::instrument;
 
 use crate::columns::{num_cols, Poseidon2Cols};
+use crate::PermutationLinearLayer;
 
-// TODO: Take generic iterable
+/// Generate trace
 #[instrument(name = "generate Poseidon2 trace", skip_all)]
 pub fn generate_trace_rows<
     F: PrimeField,
+    L: PermutationLinearLayer,
     const WIDTH: usize,
     const SBOX_DEGREE: usize,
     const SBOX_REGISTERS: usize,
@@ -25,11 +27,12 @@ pub fn generate_trace_rows<
         n.is_power_of_two(),
         "Callers expected to pad inputs to a power of two"
     );
-    let ncols = num_cols::<WIDTH, SBOX_DEGREE, SBOX_REGISTERS, HALF_FULL_ROUNDS, PARTIAL_ROUNDS>();
+    let ncols = num_cols::<L, WIDTH, SBOX_DEGREE, SBOX_REGISTERS, HALF_FULL_ROUNDS, PARTIAL_ROUNDS>();
     let mut trace = RowMajorMatrix::new(vec![F::zero(); n * ncols], ncols);
     let (prefix, rows, suffix) = unsafe {
         trace.values.align_to_mut::<Poseidon2Cols<
             F,
+            L,
             WIDTH,
             SBOX_DEGREE,
             SBOX_REGISTERS,
@@ -41,7 +44,7 @@ pub fn generate_trace_rows<
     assert!(suffix.is_empty(), "Alignment should match");
     assert_eq!(rows.len(), n);
 
-    rows.par_iter_mut().zip(inputs).for_each(|(row, input)| {
+    rows.iter_mut().zip(inputs).for_each(|(row, input)| {
         generate_trace_rows_for_perm(row, input);
     });
 
@@ -51,21 +54,23 @@ pub fn generate_trace_rows<
 /// `rows` will normally consist of 24 rows, with an exception for the final row.
 fn generate_trace_rows_for_perm<
     F: PrimeField,
+    L: PermutationLinearLayer,
     const WIDTH: usize,
     const SBOX_DEGREE: usize,
     const SBOX_REGISTERS: usize,
     const HALF_FULL_ROUNDS: usize,
     const PARTIAL_ROUNDS: usize,
 >(
-    _row: &mut Poseidon2Cols<
+    row: &mut Poseidon2Cols<
         F,
+        L,
         WIDTH,
         SBOX_DEGREE,
         SBOX_REGISTERS,
         HALF_FULL_ROUNDS,
         PARTIAL_ROUNDS,
     >,
-    _input: [F; WIDTH],
+    input: [F; WIDTH],
 ) {
     // TODO
 }

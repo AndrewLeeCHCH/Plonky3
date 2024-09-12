@@ -1,21 +1,20 @@
 use alloc::vec::Vec;
 use core::borrow::Borrow;
-
+use core::marker::PhantomData;
 use p3_air::{Air, AirBuilder, BaseAir};
 use p3_field::{AbstractField, Field};
 use p3_matrix::Matrix;
 use rand::distributions::{Distribution, Standard};
 use rand::Rng;
 
-use crate::columns::{num_cols, Poseidon2Cols};
-use crate::{FullRound, PartialRound, SBox};
+use crate::columns::{num_cols, Poseidon2Cols, FullRound, PartialRound, SBox};
+use crate::PermutationLinearLayer;
 
-/// Assumes the field size is at least 16 bits.
-///
-/// ***WARNING***: this is a stub for now, not ready to use.
+/// Poseidon2 Air
 #[derive(Debug)]
 pub struct Poseidon2Air<
     F: Field,
+    L: PermutationLinearLayer,
     const WIDTH: usize,
     const SBOX_DEGREE: usize,
     const SBOX_REGISTERS: usize,
@@ -25,17 +24,21 @@ pub struct Poseidon2Air<
     beginning_full_round_constants: [[F; WIDTH]; HALF_FULL_ROUNDS],
     partial_round_constants: [F; PARTIAL_ROUNDS],
     ending_full_round_constants: [[F; WIDTH]; HALF_FULL_ROUNDS],
+    internal_matrix_diagonal: [F; WIDTH],
+    _marker: PhantomData<L>,
 }
 
 impl<
         F: Field,
+        L: PermutationLinearLayer,
         const WIDTH: usize,
         const SBOX_DEGREE: usize,
         const SBOX_REGISTERS: usize,
         const HALF_FULL_ROUNDS: usize,
         const PARTIAL_ROUNDS: usize,
-    > Poseidon2Air<F, WIDTH, SBOX_DEGREE, SBOX_REGISTERS, HALF_FULL_ROUNDS, PARTIAL_ROUNDS>
+    > Poseidon2Air<F, L, WIDTH, SBOX_DEGREE, SBOX_REGISTERS, HALF_FULL_ROUNDS, PARTIAL_ROUNDS>
 {
+    /// Generate Poseidon2
     pub fn new_from_rng<R: Rng>(rng: &mut R) -> Self
     where
         Standard: Distribution<F> + Distribution<[F; WIDTH]>,
@@ -58,38 +61,50 @@ impl<
             .collect::<Vec<[F; WIDTH]>>()
             .try_into()
             .unwrap();
+        let internal_matrix_diagonal = rng
+            .sample_iter(Standard)
+            .take(WIDTH)
+            .collect::<Vec<F>>()
+            .try_into()
+            .unwrap();
         Self {
             beginning_full_round_constants,
             partial_round_constants,
             ending_full_round_constants,
+            internal_matrix_diagonal,
+            _marker: PhantomData
         }
     }
 }
 
 impl<
         F: Field,
+        L:PermutationLinearLayer + core::marker::Sync,
         const WIDTH: usize,
         const SBOX_DEGREE: usize,
         const SBOX_REGISTERS: usize,
         const HALF_FULL_ROUNDS: usize,
         const PARTIAL_ROUNDS: usize,
     > BaseAir<F>
-    for Poseidon2Air<F, WIDTH, SBOX_DEGREE, SBOX_REGISTERS, HALF_FULL_ROUNDS, PARTIAL_ROUNDS>
+    for Poseidon2Air<F, L, WIDTH, SBOX_DEGREE, SBOX_REGISTERS, HALF_FULL_ROUNDS, PARTIAL_ROUNDS>
+    where L:PermutationLinearLayer,
 {
     fn width(&self) -> usize {
-        num_cols::<WIDTH, SBOX_DEGREE, SBOX_REGISTERS, HALF_FULL_ROUNDS, PARTIAL_ROUNDS>()
+        num_cols::<L, WIDTH, SBOX_DEGREE, SBOX_REGISTERS, HALF_FULL_ROUNDS, PARTIAL_ROUNDS>()
     }
 }
 
 impl<
         AB: AirBuilder,
+        L,
         const WIDTH: usize,
         const SBOX_DEGREE: usize,
         const SBOX_REGISTERS: usize,
         const HALF_FULL_ROUNDS: usize,
         const PARTIAL_ROUNDS: usize,
     > Air<AB>
-    for Poseidon2Air<AB::F, WIDTH, SBOX_DEGREE, SBOX_REGISTERS, HALF_FULL_ROUNDS, PARTIAL_ROUNDS>
+    for Poseidon2Air<AB::F, L, WIDTH, SBOX_DEGREE, SBOX_REGISTERS, HALF_FULL_ROUNDS, PARTIAL_ROUNDS>
+    where L: PermutationLinearLayer + core::marker::Sync
 {
     #[inline]
     fn eval(&self, builder: &mut AB) {
@@ -97,6 +112,7 @@ impl<
         let local = main.row_slice(0);
         let local: &Poseidon2Cols<
             AB::Var,
+            L,
             WIDTH,
             SBOX_DEGREE,
             SBOX_REGISTERS,
@@ -106,13 +122,13 @@ impl<
 
         let mut state: [AB::Expr; WIDTH] = local.inputs.map(|x| x.into());
 
-        // assert_eq!(
-        //     L::WIDTH,
-        //     WIDTH,
-        //     "The WIDTH for this STARK does not match the Linear Layer WIDTH."
-        // );
+        assert_eq!(
+            L::WIDTH,
+            WIDTH,
+            "The WIDTH for this STARK does not match the Linear Layer WIDTH."
+        );
 
-        // L::matmul_external(state);
+        L::matmul_external(&mut state);
         for round in 0..HALF_FULL_ROUNDS {
             eval_full_round(
                 &mut state,
@@ -127,6 +143,7 @@ impl<
                 &mut state,
                 &local.partial_rounds[round],
                 &self.partial_round_constants[round],
+                &self.internal_matrix_diagonal,
                 builder,
             );
         }
@@ -145,37 +162,43 @@ impl<
 #[inline]
 fn eval_full_round<
     AB: AirBuilder,
+    L,
     const WIDTH: usize,
     const SBOX_DEGREE: usize,
     const SBOX_REGISTERS: usize,
 >(
     state: &mut [AB::Expr; WIDTH],
-    full_round: &FullRound<AB::Var, WIDTH, SBOX_DEGREE, SBOX_REGISTERS>,
+    full_round: &FullRound<AB::Var, L, WIDTH, SBOX_DEGREE, SBOX_REGISTERS>,
     round_constants: &[AB::F; WIDTH],
     builder: &mut AB,
-) {
+) where L: PermutationLinearLayer {
     for (i, (s, r)) in state.iter_mut().zip(round_constants.iter()).enumerate() {
         *s = s.clone() + *r;
         eval_sbox(&full_round.sbox[i], s, builder);
     }
-    // L::matmul_external(state);
+    L::matmul_external(state);
 }
 
 #[inline]
 fn eval_partial_round<
     AB: AirBuilder,
+    L,
     const WIDTH: usize,
     const SBOX_DEGREE: usize,
     const SBOX_REGISTERS: usize,
 >(
     state: &mut [AB::Expr; WIDTH],
-    partial_round: &PartialRound<AB::Var, WIDTH, SBOX_DEGREE, SBOX_REGISTERS>,
+    partial_round: &PartialRound<AB::Var, L, WIDTH, SBOX_DEGREE, SBOX_REGISTERS>,
     round_constant: &AB::F,
+    internal_matrix_diagonal: &[AB::F; WIDTH],
     builder: &mut AB,
-) {
+) where L: PermutationLinearLayer  {
     state[0] = state[0].clone() + *round_constant;
     eval_sbox(&partial_round.sbox, &mut state[0], builder);
-    // L::matmul_internal(state, internal_matrix_diagonal);
+    let internal_matrix_diagonal_expr = internal_matrix_diagonal.iter().map(|imd| {
+        AB::Expr::from(*imd)
+    }).collect::<Vec<_>>();
+    L::matmul_internal(state, internal_matrix_diagonal_expr.as_slice());
 }
 
 /// Evaluates the S-BOX over a degree-`1` expression `x`.
@@ -221,8 +244,8 @@ fn eval_sbox<AB, const DEGREE: usize, const REGISTERS: usize>(
 ) where
     AB: AirBuilder,
 {
-    // assert_ne!(REGISTERS, 0, "The number of REGISTERS must be positive.");
-    // assert!(DEGREE <= 11, "The DEGREE must be less than or equal to 11.");
+    assert_ne!(REGISTERS, 0, "The number of REGISTERS must be positive.");
+    assert!(DEGREE <= 11, "The DEGREE must be less than or equal to 11.");
     // assert_eq!(
     //     REGISTERS,
     //     Self::OPTIMAL_REGISTER_COUNT[DEGREE],
@@ -248,23 +271,23 @@ fn eval_sbox<AB, const DEGREE: usize, const REGISTERS: usize>(
 /// Loads `value` into the `i`-th S-BOX register.
 #[inline]
 fn load<AB, const SBOX_DEGREE: usize, const SBOX_REGISTERS: usize>(
-    _sbox: &SBox<AB::Var, SBOX_DEGREE, SBOX_REGISTERS>,
-    _i: usize,
-    _value: AB::Expr,
-    _builder: &mut AB,
+    sbox: &SBox<AB::Var, SBOX_DEGREE, SBOX_REGISTERS>,
+    i: usize,
+    value: AB::Expr,
+    builder: &mut AB,
 ) where
     AB: AirBuilder,
 {
-    // builder.assert_eq(sbox.0[i].into(), value);
+    builder.assert_eq(sbox.0[i].into(), value);
 }
 
 /// Loads the product over all `product` indices the into the `i`-th S-BOX register.
 #[inline]
 fn load_product<AB, const SBOX_DEGREE: usize, const SBOX_REGISTERS: usize>(
-    _sbox: &SBox<AB::Var, SBOX_DEGREE, SBOX_REGISTERS>,
-    _i: usize,
-    _product: &[usize],
-    _builder: &mut AB,
+    sbox: &SBox<AB::Var, SBOX_DEGREE, SBOX_REGISTERS>,
+    i: usize,
+    product: &[usize],
+    builder: &mut AB,
 ) where
     AB: AirBuilder,
 {
@@ -272,30 +295,30 @@ fn load_product<AB, const SBOX_DEGREE: usize, const SBOX_REGISTERS: usize>(
     //     product.len() <= 3,
     //     "Product is too big. We can only compute at most degree-3 constraints."
     // );
-    // load(
-    //     sbox,
-    //     i,
-    //     product.iter().map(|j| AB::Expr::from(self.0[*j])).product(),
-    //     builder,
-    // );
+    load(
+        sbox,
+        i,
+        product.iter().map(|j| sbox.0[*j].into()).product(),
+        builder,
+    );
 }
 
 /// Loads the final product into the last S-BOX register. The final term in the product is
 /// `pow(x, DEGREE % 3)`.
 #[inline]
 fn load_last_product<AB, const SBOX_DEGREE: usize, const SBOX_REGISTERS: usize>(
-    _sbox: &SBox<AB::Var, SBOX_DEGREE, SBOX_REGISTERS>,
-    _x: AB::Expr,
-    _x2: AB::Expr,
-    _x3: AB::Expr,
-    _builder: &mut AB,
+    sbox: &SBox<AB::Var, SBOX_DEGREE, SBOX_REGISTERS>,
+    x: AB::Expr,
+    x2: AB::Expr,
+    x3: AB::Expr,
+    builder: &mut AB,
 ) where
     AB: AirBuilder,
 {
-    // load(
-    //     sbox,
-    //     REGISTERS - 1,
-    //     [x3, x, x2][DEGREE % 3].clone() * AB::Expr::from(self.0[REGISTERS - 2]),
-    //     builder,
-    // );
+    load(
+        sbox,
+        SBOX_REGISTERS - 1,
+        [x3, x, x2][SBOX_DEGREE % 3].clone() * sbox.0[SBOX_REGISTERS - 2].into(),
+        builder,
+    );
 }

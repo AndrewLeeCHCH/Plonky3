@@ -8,7 +8,6 @@ use p3_fri::{FriConfig, TwoAdicFriPcs};
 use p3_keccak::Keccak256Hash;
 use p3_koala_bear::KoalaBear;
 use p3_merkle_tree::FieldMerkleTreeMmcs;
-use p3_poseidon2_air::{generate_trace_rows, Poseidon2Air};
 use p3_symmetric::{CompressionFunctionFromHasher, SerializingHasher32};
 use p3_uni_stark::{prove, verify, StarkConfig};
 use rand::{random, thread_rng};
