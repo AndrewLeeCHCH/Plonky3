@@ -275,15 +275,24 @@ fn sbox_p<F: PrimeField>(degree: usize, input: &mut F) {
             input.mul_assign(input2);
         }
         5 => {
-            let mut input4 = input2;
+            let mut input4 = input2.clone();
             input4.mul_assign(input2.clone());
             input.mul_assign(input4);
         }
         7 => {
-            let mut input6 = input2;
+            let mut input6 = input2.clone();
             input6.mul_assign(input2.clone());
             input6.mul_assign(input2.clone());
             input.mul_assign(input6)
+        }
+        11 => {
+            let mut input3 = input2.clone();
+            input3.mul_assign(input.clone());
+            let mut input10 = input3.clone();
+            input10.mul_assign(input3.clone());
+            input10.mul_assign(input3.clone());
+            input10.mul_assign(input.clone());
+            input.mul_assign(input10)
         }
         _ => {
             panic!()
@@ -308,27 +317,20 @@ fn generateSBox<
         return sbox;
     }
 
-    // if DEGREE == 11 {
-    //     (1..REGISTERS - 1).for_each(|j| crate::air::load_product(sbox, j, &[0, 0, j - 1], builder));
-    // } else {
-    //     (1..REGISTERS - 1).for_each(|j| crate::air::load_product(sbox, j, &[0, j - 1], builder));
-    // }
-    // crate::air::load_last_product(sbox, x.clone(), x2, x3, builder);
-    // *x = sbox.0[REGISTERS - 1].into();
-
-
+    if SBOX_REGISTERS > 4 {
+        panic!("unexpected registers")
+    }
     for i in 1..SBOX_REGISTERS - 1 {
-        // if (SBOX_DEGREE == 11) {
-        //
-        // } else {
-        //
-        // }
-
+        let mut value = sbox.0[0].clone();
+        value.mul_assign(sbox.0[i-1].clone());
+        if (SBOX_DEGREE == 11) {
+            value.mul_assign(sbox.0[0].clone());
+        }
+        sbox.0[i] = value;
     }
 
     let mut finalValue = [x3, x, x2][SBOX_DEGREE % 3].clone();
-    let s: F = sbox.0[SBOX_REGISTERS - 2];
-    finalValue.mul_assign(s);
+    finalValue.mul_assign(sbox.0[SBOX_REGISTERS - 2]);
     sbox.0[SBOX_REGISTERS - 1] =  finalValue;
 
     

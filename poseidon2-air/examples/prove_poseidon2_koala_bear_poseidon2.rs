@@ -22,12 +22,12 @@ use p3_poseidon2_air::generation::generate_trace_rows;
 use p3_poseidon2_air::{LinearLayer, PermutationLinearLayer};
 
 const WIDTH: usize = 16;
-const SBOX_DEGREE: usize = 5;
-const SBOX_REGISTERS: usize = 2;
+const SBOX_DEGREE: usize = 11;
+const SBOX_REGISTERS: usize = 3;
 const HALF_FULL_ROUNDS: usize = 4;
 const PARTIAL_ROUNDS: usize = 20;
 
-const NUM_HASHES: usize = 1<<20;
+const NUM_HASHES: usize = 1<<2;
 
 fn main() -> Result<(), impl Debug> {
     let env_filter = EnvFilter::builder()
