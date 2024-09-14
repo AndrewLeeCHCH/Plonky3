@@ -6,7 +6,7 @@ use p3_dft::Radix2DitParallel;
 use p3_field::extension::BinomialExtensionField;
 use p3_field::Field;
 use p3_fri::{FriConfig, TwoAdicFriPcs};
-use p3_koala_bear::{DiffusionMatrixKoalaBear, KoalaBear};
+use p3_goldilocks::{DiffusionMatrixGoldilocks, Goldilocks};
 use p3_merkle_tree::FieldMerkleTreeMmcs;
 use p3_poseidon2::{Poseidon2, Poseidon2ExternalMatrixGeneral};
 use p3_symmetric::{PaddingFreeSponge, TruncatedPermutation};
@@ -39,16 +39,16 @@ fn main() -> Result<(), impl Debug> {
         .with(ForestLayer::default())
         .init();
 
-    type Val = KoalaBear;
+    type Val = Goldilocks;
     type Challenge = BinomialExtensionField<Val, 4>;
 
     type L = LinearLayer<16>;
 
 
-    type Perm = Poseidon2<Val, Poseidon2ExternalMatrixGeneral, DiffusionMatrixKoalaBear, 16, 3>;
+    type Perm = Poseidon2<Val, Poseidon2ExternalMatrixGeneral, DiffusionMatrixGoldilocks, 16, 3>;
     let perm = Perm::new_from_rng_128(
         Poseidon2ExternalMatrixGeneral,
-        DiffusionMatrixKoalaBear::default(),
+        DiffusionMatrixGoldilocks::default(),
         &mut thread_rng(),
     );
 
@@ -83,6 +83,9 @@ fn main() -> Result<(), impl Debug> {
         HALF_FULL_ROUNDS,
         PARTIAL_ROUNDS,
     > = Poseidon2Air::new_from_rng(&mut thread_rng());
+
+    let a =  air.beginning_full_round_constants;
+
     // Vec<[F; WIDTH]>
     let inputs = (0..NUM_HASHES).map(|_| [random(); WIDTH] ).collect::<Vec<_>>();
     
@@ -112,6 +115,7 @@ fn main() -> Result<(), impl Debug> {
 
     type MyConfig = StarkConfig<Pcs, Challenge, Challenger>;
     let config = MyConfig::new(pcs);
+    
 
     let mut challenger = Challenger::new(perm.clone());
     let proof = prove(&config, &air, &mut challenger, trace, &vec![]);
