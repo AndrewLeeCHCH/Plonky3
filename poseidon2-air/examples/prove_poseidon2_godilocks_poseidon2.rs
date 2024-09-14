@@ -6,7 +6,7 @@ use p3_dft::Radix2DitParallel;
 use p3_field::extension::BinomialExtensionField;
 use p3_field::Field;
 use p3_fri::{FriConfig, TwoAdicFriPcs};
-use p3_goldilocks::{DiffusionMatrixGoldilocks, Goldilocks};
+use p3_goldilocks::{DiffusionMatrixGoldilocks, Goldilocks, HL_GOLDILOCKS_8_EXTERNAL_ROUND_CONSTANTS, HL_GOLDILOCKS_8_INTERNAL_ROUND_CONSTANTS, MATRIX_DIAG_8_GOLDILOCKS_U64};
 use p3_merkle_tree::FieldMerkleTreeMmcs;
 use p3_poseidon2::{Poseidon2, Poseidon2ExternalMatrixGeneral};
 use p3_symmetric::{PaddingFreeSponge, TruncatedPermutation};
@@ -30,7 +30,7 @@ const SBOX_REGISTERS: usize = 3;
 const HALF_FULL_ROUNDS: usize = 4;
 const PARTIAL_ROUNDS: usize = 22;
 
-const NUM_HASHES: usize = 1<<1;
+const NUM_HASHES: usize = 1<<0;
 
 fn main() {
     let env_filter = EnvFilter::builder()
@@ -78,9 +78,39 @@ fn main() {
     // let dft = Dft {};
 
     // type Challenger = DuplexChallenger<Val, Perm, WIDTH, 8>;
-    
-    
-    
+    //         beginning_full_round_constants: [[F; WIDTH]; HALF_FULL_ROUNDS],
+    let mut beginning: [[Val;8]; HALF_FULL_ROUNDS] = [[Val::zero(); 8]; HALF_FULL_ROUNDS];
+    let mut end: [[Val;8]; HALF_FULL_ROUNDS] = [[Val::zero(); 8]; HALF_FULL_ROUNDS];
+
+    let full_round_constants = HL_GOLDILOCKS_8_EXTERNAL_ROUND_CONSTANTS.iter().map(|arr| {
+        arr.map(|c| Val::from_canonical_u64(c))
+    }).collect::<Vec<_>>();
+
+    for i in 0..4 {
+        beginning[i] = full_round_constants[i];
+    }
+
+    for i in 0..4 {
+        end[i] = full_round_constants[i+4];
+    }
+
+    // let beginning_full: [[F; WIDTH]; HALF_FULL_ROUNDS] =
+
+    let  partial_constants = HL_GOLDILOCKS_8_INTERNAL_ROUND_CONSTANTS.into_iter().map(|value| {
+         Val::from_canonical_u64(value)
+    }).collect::<Vec<_>>();
+    let mut partial: [Val; PARTIAL_ROUNDS] = [Val::zero(); PARTIAL_ROUNDS];
+    for i in 0..PARTIAL_ROUNDS {
+        partial[i] = partial_constants[i];
+    }
+
+    let internal_constants = MATRIX_DIAG_8_GOLDILOCKS_U64.into_iter().map(|value| {
+        Val::from_canonical_u64(value)
+    }).collect::<Vec<_>>();
+    let mut internal: [Val; WIDTH] = [Val::zero(); WIDTH];
+    for i in 0..WIDTH {
+        internal[i] = partial_constants[i];
+    }
     let air: Poseidon2Air<
         Val,
         L,
@@ -89,7 +119,13 @@ fn main() {
         SBOX_REGISTERS,
         HALF_FULL_ROUNDS,
         PARTIAL_ROUNDS,
-    > = Poseidon2Air::new_from_rng(&mut thread_rng());
+    > = Poseidon2Air::new_from_rng(
+        &mut thread_rng(),
+        beginning,
+        partial,
+        end,
+        internal,
+    );
 
 
     Val::from_wrapped_u64(0);
