@@ -130,7 +130,18 @@ fn main() {
 
     Val::from_wrapped_u64(0);
     // Vec<[F; WIDTH]>
-    let inputs = (0..NUM_HASHES).map(|_| [Goldilocks::zero(); WIDTH] ).collect::<Vec<_>>();
+
+    let mut input: [Val; 8] = [
+        5116996373749832116,
+        8931548647907683339,
+        17132360229780760684,
+        11280040044015983889,
+        11957737519043010992,
+        15695650327991256125,
+        17604752143022812942,
+        543194415197607509,
+    ].map(Val::from_wrapped_u64);
+    let inputs =  (0..NUM_HASHES).map(|_| input ).collect::<Vec<_>>();
 
     let trace = generate_trace_rows::<
         Val,
