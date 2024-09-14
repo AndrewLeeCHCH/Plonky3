@@ -109,7 +109,7 @@ fn main() {
     }).collect::<Vec<_>>();
     let mut internal: [Val; WIDTH] = [Val::zero(); WIDTH];
     for i in 0..WIDTH {
-        internal[i] = partial_constants[i];
+        internal[i] = internal_constants[i];
     }
     let air: Poseidon2Air<
         Val,

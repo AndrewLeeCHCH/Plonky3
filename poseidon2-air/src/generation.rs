@@ -136,7 +136,7 @@ fn generate_trace_rows_for_perm<
         .map(F::from_canonical_u64);
     // assert_eq!(inputs_state, expected)
     for i in 0..WIDTH {
-        assert_ne!(inputs_state[i], expected[i]);
+        assert_eq!(inputs_state[i], expected[i]);
     }
     
     println!("eval finished")
