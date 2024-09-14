@@ -56,9 +56,9 @@ pub trait PermutationLinearLayer: sealed::Sealed {
 
 /// Poseidon2 Linear Layer
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
-pub struct LinearLayer<const T: u8>;
+pub struct LinearLayer<const T: usize>;
 
-impl<const T: u8> sealed::Sealed for LinearLayer<T> {}
+impl<const T: usize> sealed::Sealed for LinearLayer<T> {}
 
 impl PermutationLinearLayer for LinearLayer<2> {
     const WIDTH: usize = 2;
