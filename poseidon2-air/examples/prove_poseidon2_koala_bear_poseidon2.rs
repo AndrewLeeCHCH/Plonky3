@@ -27,7 +27,7 @@ const SBOX_REGISTERS: usize = 3;
 const HALF_FULL_ROUNDS: usize = 4;
 const PARTIAL_ROUNDS: usize = 20;
 
-const NUM_HASHES: usize = 1<<2;
+const NUM_HASHES: usize = 1<<16;
 
 fn main() -> Result<(), impl Debug> {
     let env_filter = EnvFilter::builder()
@@ -87,7 +87,7 @@ fn main() -> Result<(), impl Debug> {
     let a =  air.beginning_full_round_constants;
 
     // Vec<[F; WIDTH]>
-    let inputs = (0..NUM_HASHES).map(|_| [Val::new(32); WIDTH] ).collect::<Vec<_>>();
+    let inputs = (0..NUM_HASHES).map(|_| [random(); WIDTH] ).collect::<Vec<_>>();
     
     let trace = generate_trace_rows::<
         Val,
